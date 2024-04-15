@@ -2,3 +2,12 @@
 fslmaths $FSLDIR/data/standard/MNI152_T1_2mm.nii.gz -mul 0 -add 1 -roi [voxel x] 1 [voxel y] 1 [voxel z] 1 0 1 [1st_output_name_roi].nii.gz -odt float
 fslmaths [1st_output_name_roi].nii.gz -kernel sphere 5 -fmean [2nd_output_name_sphere].nii.gz -odt float     #creates a 5mm sphere
 fslmaths [2nd_output_name_sphere].nii.gz -bin [3rd_output_name_bin].nii.gz     #binarize the sphere so FSL can read it
+
+
+### Batch BET script ###
+for id in {01..16}; do
+    subj="sub-$id"
+    cd $subj
+    bet2 anat/${subj}_T1w.nii.gz anat/${subj}_T1w_brain  -f 0.25 -g 0
+    cd ..
+    done

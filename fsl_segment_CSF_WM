@@ -1,0 +1,31 @@
+#!/bin/bash
+
+subj=$1
+
+DIR=/home/njs58/linux/net/duhsnas-pri-dusom_morey/ProxPTSD.01/analysis/fsl_2024
+FUNCDIR=$DIR/derivatives/acquisition/1st_level_analysis/${subj}.feat
+
+cd $DIR/$subj/ses-01/anat
+mkdir segmentation
+cp ${subj}_ses-01_T1w_brain.nii.gz $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_brain.nii.gz
+cd segmentation
+
+fast --channels=1 --type=1 --class=3 $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_brain.nii.gz
+convert_xfm -omat $FUNCDIR/reg/example_func2highres_inverse.mat -inverse $FUNCDIR/reg/example_func2highres.mat
+#CSF
+flirt -in $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_brain_pve_0.nii.gz -ref $FUNCDIR/filtered_func_data.nii.gz -applyxfm -init $FUNCDIR/reg/example_func2highres_inverse.mat -out $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_CSF_reg.nii.gz
+#WM
+flirt -in $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_brain_pve_2.nii.gz -ref $FUNCDIR/filtered_func_data.nii.gz -applyxfm -init $FUNCDIR/reg/example_func2highres_inverse.mat -out $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_WM_reg.nii.gz
+
+#threshold the probabilty a given voxel is CSF or WM
+#For CSF 0.95
+fslmaths $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_CSF_reg.nii.gz -thr 0.95 $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_CSF_thr.nii.gz
+#For WM 0.95
+fslmaths $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_WM_reg.nii.gz -thr 0.95 $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_WM_thr.nii.gz
+
+#Extract values
+fslmeants -i $FUNCDIR/filtered_func_data -o $DIR/$subj/ses-01/anat/segmentation/CSF_noise.txt -m $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_CSF_thr.nii.gz
+fslmeants -i $FUNCDIR/filtered_func_data -o $DIR/$subj/ses-01/anat/segmentation/WM_noise.txt -m $DIR/$subj/ses-01/anat/segmentation/${subj}_ses-01_T1w_WM_thr.nii.gz
+#Find average value
+awk '{ sum += $1 } END { print sum / NR }' "$DIR/$subj/ses-01/anat/segmentation/CSF_noise.txt" > CSF_average.txt
+awk '{ sum += $1 } END { print sum / NR }' "$DIR/$subj/ses-01/anat/segmentation/WM_noise.txt" > WM_average.txt
